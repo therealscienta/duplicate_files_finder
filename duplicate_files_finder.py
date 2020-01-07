@@ -6,7 +6,6 @@ import sys
 import csv
 import time
 import hashlib
-import argparse
 import mimetypes
 from random import randrange
 

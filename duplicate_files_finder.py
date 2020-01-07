@@ -58,12 +58,13 @@ def CheckForDuplicates(paths, hash=hashlib.sha1):
 
     size_duplicates = 0
     sorted_dict = {}
+    path_list = [paths]
 
-    for path in paths:
+    for path in path_list:
         for dirpath, dirnames, filenames in os.walk(path):
             for filename in filenames:
                 full_path = os.path.join(dirpath, filename)
-                
+
                 try:
                     # if the target is a symlink (soft one), this will 
                     # dereference it - change the value to the actual target file
@@ -120,8 +121,6 @@ def CheckForDuplicates(paths, hash=hashlib.sha1):
             duplicate = hashes_full.get(full_hash)
             if duplicate:
                 hashes_full[full_hash].append(filename)
-                if verbose_mode:
-                    print("Duplicate found: %s and %s" % (filename, duplicate))
             else:
                 hashes_full[full_hash] = [filename]
 
@@ -141,7 +140,6 @@ def CheckForDuplicates(paths, hash=hashlib.sha1):
                 hashes_full[items].pop()
 
             else:
-
                 # X and Y are the files that will be compared,
                 # the most probable candidate remains in the list
                 x = hashes_full[items][0]
@@ -203,112 +201,130 @@ def CheckForDuplicates(paths, hash=hashlib.sha1):
                     hashes_full[items].remove(y)
 
     if len(sorted_dict) > 0:
-        print(f"\nFound duplicates for a total of {round(size_duplicates/1024/1024,1)}MB. Results will be found in file.")
+        print(f"\nFound duplicates for a total of {round(size_duplicates/1024/1024,1)}MB. Results was printed to CSV-file.")
     return sorted_dict
-
-# Variables to be used with argparse
-verbose_mode = False
-delete_mode = False
-soft_delete = False
-csv_gen = False
-
-# Setup ArgumentParser
-parser = argparse.ArgumentParser(prog='Duplicates.py',
-                                 description='Automatically find and delete duplicate files!',
-                                 formatter_class=argparse.RawTextHelpFormatter)
-
-parser.add_argument('-v', '--verbose', help="Verbose mode, printing duplicates that are found", action='store_true')
-parser.add_argument('-d', '--delete', help="Delete all duplicates", action='store_true')
-parser.add_argument('-c', '--csv', help="Create CSV file for inspection of duplicates", action='store_true')
-parser.add_argument('-s', '--soft', help="Delete all duplicates that contain (n) in filename (need to specify delete)", action='store_true')
-parser.add_argument('filePathListArg', help="The path too search for duplicates", nargs='+')
-
-if not len(sys.argv) > 1:
-    print("Please pass the path to check as parameter to the script")
-    sys.exit()
-
-result = parser.parse_args()
-if result.verbose:
-    verbose_mode = True
-if result.delete:
-    delete_mode = True
-if result.soft:
-    soft_delete = True
-if result.csv:
-    csv_gen = True
 
 ### Main script execution ###
 
-# Check for passed parameters
-if result.filePathListArg:
-    scriptPath = sys.argv[0][:-2]
-    csvPath = scriptPath + "csv"
+script_path = sys.argv[0][:-2]
+csv_path = script_path + "csv"
 
-    # If there exists a csv-file, ask if user want to delete duplicates from file
-    if os.path.isfile(csvPath) is True:
-        print("CSV file found.")
-        text = "Analysing content.....\n"
-        for c in text:
-            sys.stdout.write(c)
-            sys.stdout.flush()
-            if c == ".":
-                seconds = "0." + str(randrange(2, 5, 1))
-                seconds = float(seconds)
-                time.sleep(seconds)
-        
-        itemsCount = 0
-        linesCount = 0
-        with open(csvPath,'r') as csvread:
-            csvreader = csv.reader(csvread, delimiter=";")
-            for line in csvreader:
-                linesCount += 1
-                if not linesCount == 1:
-                    path = line[1]
-                    itemsCount += 1
-                    if soft_delete:
-                        if re.search("\(\d+\)",path):
-                            print(f"Trying to delete {path}")
-                            try:
-                                if os.path.isfile(path):
-                                    if delete_mode:
-                                        os.remove(path)
-                                    else:
-                                        print("File found, but will not be deleted.")
-                            except:
-                                print(f"Could not locate file {path}")
-                    else:
-                        print(f"Trying to delete {path}")
-                        try:
-                            if os.path.isfile(path):
-                                if delete_mode:
-                                    os.remove(path)
-                                else:
-                                    print("File found, but will not be deleted.")
-                        except:
-                            print(f"ERROR: Could not locate file {path}")
-
-            print(f"Attempted to delete {itemsCount} duplicates from list.")
-    else:
-        print("No CSV file found.")
-        print("Searching for duplicates...")
-        dict_of_duplicates = CheckForDuplicates(result.filePathListArg)
-
-        # Check if any duplicates were found
-        if len(dict_of_duplicates) > 0:
-            topField = ["filename", "duplicate"]
-            filePath = sys.argv[0][:-2] + "csv"
-            
-            # DEBUG
-            # Create csv-file with files and duplicates
-            with open(filePath,'w') as csvfile:
-                csvwriter = csv.writer(csvfile, delimiter=";")
-                csvwriter.writerow(topField)
-
-                for key in dict_of_duplicates.keys():
-                    for value in dict_of_duplicates[key]:
-                        row_to_write = [key, value]
-                        csvwriter.writerow(row_to_write)
-        else:
-            print("No duplicates were found.")
+# If there exists a csv-file, ask if user want to delete duplicates from file
+if os.path.isfile(csv_path) is True and os.path.getsize(csv_path) != 0:
+    
+    print("CSV file found.")
+    while True:
+        print("""
+        What do you want to do with the file?
+        [1] Print content
+        [2] Delete duplicate files
+        [3] Exit
+                """)
+        # print()
+        answer = str(input("Answer(1-3): ")).strip()
+        if answer == "3":
             sys.exit()
+        if answer  == "1" or answer == "2":
+            break
+        else:
+            print("Please give a valid answer.")
+
+    # Make sure the user really wanted to delete
+    if answer == "2":
+        print("Are you sure you want to delete failes? Type \"yes\" to continue...\n")
+        second_answer = input("Answer: ")
+        if second_answer.lower() != "yes":
+            print("Exiting")
+            sys.exit()
+
+    # Print text to screen with delay    
+    text = "Analysing content.....\n"
+    for c in text:
+        sys.stdout.write(c)
+        sys.stdout.flush()
+        if c == ".":
+            seconds = "0." + str(randrange(2, 5, 1))
+            seconds = float(seconds)
+            time.sleep(seconds)
+    
+    item_count = 0
+    lines_count = 0
+    failed_deletes = []
+
+    with open(csv_path,'r') as csvread:
+
+        csvreader = csv.reader(csvread, delimiter=";")
+        for line in csvreader:
+            lines_count += 1
+            if not lines_count == 1:
+                path = line[1]
+                item_count += 1
+
+                # Print items in csv-file
+                if answer == "1":
+                    print(f"{line[0]};{line[1]}")
+
+                # Delete duplicate failes, i.e. files in second column
+                # in csv-file, if the exist
+                elif answer == "2":
+                    print(f"Trying to delete {path}")
+                    try:
+                        if os.path.isfile(path):
+                            os.remove(path)
+                        else:
+                            raise OSError("File does not exist")
+                    except:
+                        failed_deletes.append(path)
+                        print(f"ERROR: Could not locate file: {path}")
+    if answer == "2":
+        # Delete csv-file when done
+        os.remove(csv_path)
+        print(f"Attempted to delete {item_count} duplicates from list. {len(failed_deletes)} files failed to delete.")
+
+    # If any files failed to delete, recreate csv-file
+    if failed_deletes:
+        with open(csv_path,'w') as csvfile:
+            csvwrite = csv.writer(csvfile, delimiter=";")
+            for value in failed_deletes:
+                row_to_write = ["failed", value]
+                csvwrite.writerow(row_to_write)
+        print("Files that could not be deleted are kept in csv-file")
+
+    # Exit when done with csv file
+    sys.exit()
+else:
+    if os.path.isfile(csv_path) and os.path.getsize(csv_path) == 0: 
+        os.remove(csv_path)
+    print("No CSV file found.")
+
+# Check if user provided a path to search
+if not len(sys.argv) > 1:
+    print("Please pass the path to search for duplicates as parameter to the script")
+    sys.exit()
+
+# Check for passed parameters
+if os.path.exists(sys.argv[1]):
+
+    print("Searching for duplicates...")
+    dict_of_duplicates = CheckForDuplicates(sys.argv[1])
+
+    # Check if any duplicates were found
+    if len(dict_of_duplicates) > 0:
+        topField = ["filename", "duplicate"]
+        filePath = sys.argv[0][:-2] + "csv"
         
+        # Create csv-file with files and duplicates
+        with open(filePath,'w') as csvfile:
+            csvwriter = csv.writer(csvfile, delimiter=";")
+            csvwriter.writerow(topField)
+
+            for key in dict_of_duplicates.keys():
+                for value in dict_of_duplicates[key]:
+                    row_to_write = [key, value]
+                    csvwriter.writerow(row_to_write)
+    else:
+        print("No duplicates were found.")
+        sys.exit()
+        
+else:
+    print("The provided path is invalid.")

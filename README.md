@@ -9,6 +9,7 @@ most probable original file.
 Usage:
 
 Run script and pass filepath to be scanned for duplicates
+
 E.g. duplicate_files_finder.py /my/path/to/search
 
 If duplicates are found, a csv-file will be generated with the same name as the script file.
